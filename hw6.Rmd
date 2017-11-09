@@ -10,20 +10,61 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### Setup
 
-```{r}
+```{r message=FALSE}
 # Load any necessary packages here
-
 library(sf)
 library(dplyr)
 library(ggplot2)
 library(readr)
-
+library(stringr)
 ```
 
 ### Task 1 - Clean and Merge Data
 
-```{r}
+#### Parking Violation Data
+
+```{r message=FALSE}
+if (!file.exists("nyc_parking.Rdata")) {
+  nyc_raw = read_csv("/data/nyc_parking/NYParkingViolations.csv") 
+  
+  nyc = nyc_raw %>%
+    setNames(str_replace_all(names(.)," ", "_")) %>%
+    select(Violation_Precinct, House_Number, Street_Name) %>%
+    transmute(precinct = Violation_Precinct, address = paste(House_Number, Street_Name)) %>%
+    filter(address != "") %>%
+    filter(precinct <= 34)
+  
+  save(nyc, file="nyc_parking.Rdata")
+} else {
+  load(file="nyc_parking.Rdata")
+}
 ```
+
+#### Geocoding Data
+
+```{r warning=FALSE}
+pluto = st_read("/data/nyc_parking/pluto_manhattan/MNMapPLUTO.shp", quiet=TRUE, stringsAsFactors = FALSE) %>%
+  st_geometry() %>%
+  st_centroid() %>%
+  st_coordinates() %>% 
+  data.frame(address = pluto$Address, ., stringsAsFactors = FALSE) %>%
+  tbl_df() %>%
+  filter(!is.na(address))
+```
+
+
+#### Merge data
+
+```{r}
+d = inner_join(
+  mutate(nyc,address=tolower(address)), 
+  mutate(pluto, address=tolower(address))
+)
+
+ggplot(d, aes(x=X, y=Y, color=as.factor(precinct))) +
+  geom_point()
+```
+
 
 
 ## Task 2 - Modeling and Prediction
