@@ -63,11 +63,13 @@ d = inner_join(
   mutate(pluto, address=tolower(address))
 )
 
+manh_precincts = c(1,5,6,7,9,10,13,14,17,18,19,20,22,23,24,25,26,28,30,32,33,34)
+
+d = filter(d, precinct %in% manh_precincts)
+
 ggplot(d, aes(x=X, y=Y, color=as.factor(precinct))) +
   geom_point()
 ```
 
 
-
-## Task 2 - Modeling and Prediction
 
