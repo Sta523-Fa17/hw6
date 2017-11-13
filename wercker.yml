@@ -5,11 +5,18 @@ build:
       name: Setup / Update
       code: |
           Rscript -e "update.packages(ask = FALSE)"
-          Rscript -e "install.packages('selectr')"
     - script:
       name: Update scores
       code: |
-          echo "Not yet"
+          Rscript -e "
+            file = base64enc::base64encode('precincts.geojson')
+            body = list(
+              team='$team', 
+              key='$key',
+              file=file
+            )
+            httr::POST('http://saxon.stat.duke.edu:7887/prediction', body=body, encode = 'json') 
+          "
     - script:
       name: Show leaderboard
       code: |
