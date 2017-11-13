@@ -9,7 +9,7 @@ build:
       name: Update scores
       code: |
           Rscript -e "print(list(team='$team', key='$key', file=base64enc::base64encode('precincts.geojson')))"
-          Rscript -e "stop_for_status(httr::POST('http://saxon.stat.duke.edu:7887/prediction', encode = 'json', body=list(team='$team', key='$key', file=base64enc::base64encode('precincts.geojson'))))"
+          Rscript -e "httr::stop_for_status(httr::POST('http://saxon.stat.duke.edu:7887/prediction', encode = 'json', body=list(team='$team', key='$key', file=base64enc::base64encode('precincts.geojson'))))"
     - script:
       name: Show leaderboard
       code: |
