@@ -60,7 +60,8 @@ pluto = pluto %>%
 ```{r}
 d = inner_join(
   mutate(nyc, address=tolower(address)), 
-  mutate(pluto, address=tolower(address))
+  mutate(pluto, address=tolower(address)),
+  by="address"
 )
 
 manh_precincts = c(1,5,6,7,9,10,13,14,17,18,19,20,22,23,24,25,26,28,30,32,33,34)
@@ -71,5 +72,111 @@ ggplot(d, aes(x=X, y=Y, color=as.factor(precinct))) +
   geom_point()
 ```
 
+
+## Task 2 - Modeling
+
+### Setup
+
+```{r}
+library(parallel)
+
+  if (!file.exists("manh.Rdata")) {
+    
+    manh = st_read("/data/nyc_parking/nybb/nybb.shp", quiet=TRUE) %>%
+      filter(BoroName == "Manhattan")
+    
+    manh_pts = mclapply(
+      1:10,
+      function(x) st_sample(manh, 1000),
+      mc.cores = 10
+    ) %>%
+      unlist(recursive = FALSE) %>% 
+      st_sfc() %>%
+      st_set_crs(st_crs(manh))
+     
+    manh_xy = st_coordinates(manh_pts) %>% as.data.frame()
+    
+    save(manh, manh_pts, manh_xy, file="manh.Rdata")
+    
+  } else {
+    load("manh.Rdata")
+  }
+```
+
+```{r}
+plot(st_geometry(manh), border="grey")
+plot(manh_pts, add=TRUE, pch=16, cex=0.1)
+```
+
+
+### Logistic Regression
+
+```{r}
+d_lr = d %>% select(-address) %>% mutate(prec1 = as.factor(precinct == 1))
+
+lr = glm(prec1 ~ poly(X,2)*poly(Y,2), family=binomial, data=d_lr)
+
+pred = cbind(manh_xy, prob=predict(lr, newdata=manh_xy, type="response"))
+
+ggplot(pred) +
+  geom_point(aes(x=X,y=Y,color=prob), size=0.1, alpha=0.5)
+```
+
+
+### "Multiple" Logistic Regression
+
+```{r}
+library(purrr)
+
+d_mlr = d %>% select(-address)
+
+precincts = d_mlr$precinct %>% unique() %>% sort()
+
+pred = map(
+  precincts,
+  function(p) {
+    cat("Precinct", p,"\n")
+    d_mlr %>%
+      mutate(cur_prec = (precinct == p)) %>%
+      glm(cur_prec ~ poly(X,2)*poly(Y,2), family=binomial, data=.) %>%
+      predict(newdata=manh_xy, type="response")
+  }
+)
+
+pred_index = do.call(cbind, pred) %>%
+  apply(1, which.max)
+
+pred_precinct = precincts[pred_index]
+```
+
+```{r}
+## Prediction data frame
+pred_df = cbind(manh_xy, precinct = pred_precinct)
+ggplot(pred_df) +
+  geom_point(aes(x=X,y=Y,color=as.factor(precinct)), size=0.1, alpha=0.5) +
+  guides(color = guide_legend(override.aes = list(size=2)))
+```
+
+```{r}
+## Prediction sf
+
+pred_sf = st_sf(Precinct = pred_precinct, geometry = manh_pts)
+
+
+plot(mutate(pred_sf, precinct = as.factor(precinct)), pch=16, cex=0.1)
+
+pred_sf_mp = pred_sf %>%
+  group_by(Precinct) %>%
+  summarize(geometry = list(st_cast(geometry,"MULTIPOINT")))
+
+pred_boundary = pred_sf_mp %>% st_buffer(0.0013) %>% st_intersection(st_geometry(manh))
+
+plot(mutate(pred_boundary, precinct=as.factor(precinct)))
+```
+
+
+```{r}
+st_write(pred_boundary, "precincts.geojson", delete_dsn = TRUE)
+```
 
 
