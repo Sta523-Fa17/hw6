@@ -43,7 +43,9 @@ if (!file.exists("nyc_parking.Rdata")) {
 #### Geocoding Data
 
 ```{r warning=FALSE}
-pluto = st_read("/data/nyc_parking/pluto_manhattan/MNMapPLUTO.shp", quiet=TRUE, stringsAsFactors = FALSE) %>%
+pluto = st_read("/data/nyc_parking/pluto_manhattan/MNMapPLUTO.shp", quiet=TRUE, stringsAsFactors = FALSE) 
+
+pluto = pluto %>%
   st_geometry() %>%
   st_centroid() %>%
   st_coordinates() %>% 
@@ -53,11 +55,11 @@ pluto = st_read("/data/nyc_parking/pluto_manhattan/MNMapPLUTO.shp", quiet=TRUE, 
 ```
 
 
-#### Merge data
+#### Clean and merge data
 
 ```{r}
 d = inner_join(
-  mutate(nyc,address=tolower(address)), 
+  mutate(nyc, address=tolower(address)), 
   mutate(pluto, address=tolower(address))
 )
 
@@ -69,5 +71,3 @@ ggplot(d, aes(x=X, y=Y, color=as.factor(precinct))) +
 
 ## Task 2 - Modeling and Prediction
 
-```{r}
-```
