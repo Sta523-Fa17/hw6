@@ -8,11 +8,12 @@ build:
     - script:
       name: Update scores
       code: |
-          Rscript -e "httr::POST('http://saxon.stat.duke.edu:7887/prediction', encode = 'json', body=list(team='$team', key='$key', file=base64enc::base64encode('precincts.geojson')))"
+          Rscript -e "print(list(team='$team', key='$key', file=base64enc::base64encode('precincts.geojson')))"
+          Rscript -e "stop_for_status(httr::POST('http://saxon.stat.duke.edu:7887/prediction', encode = 'json', body=list(team='$team', key='$key', file=base64enc::base64encode('precincts.geojson'))))"
     - script:
       name: Show leaderboard
       code: |
-          echo "Not yet"
+          wget -O - http://saxon.stat.duke.edu:7887/scoreboard
     - script:
         name: Check for allowed files
         code: |
