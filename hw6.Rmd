@@ -203,3 +203,37 @@ st_write(pred_boundary, "precincts.geojson", delete_dsn = TRUE, quiet=TRUE)
 ```
 
 
+### Multinomial Regression
+
+```{r}
+library(nnet)
+
+d_mn = d %>% select(-address) %>% mutate(precinct = as.factor(precinct))
+
+mn = multinom(precinct ~ X + Y + X:Y + I(X^2) + I(Y^2), data=d_mn)
+
+precinct_pred = predict(mn, newdata=manh_xy)
+
+pred_df = cbind(manh_xy, precinct=precinct_pred)
+
+pred_sf = st_sf(precinct = precinct_pred, geometry = manh_pts)
+
+ggplot(pred_df) +
+  geom_point(aes(x=X,y=Y,color=precinct_pred), size=0.1, alpha=0.5)
+
+
+pred_sf_mp = pred_sf %>%
+  group_by(precinct) %>%
+  summarize(geometry = list(st_cast(geometry,"MULTIPOINT")))
+
+pred_boundary = pred_sf_mp %>% st_buffer(0.00075) %>% st_buffer(-0.0006) 
+  
+  #st_intersection(st_geometry(manh))
+
+# devtools::install_github("tidyverse/ggplot2")
+ggplot() +
+  geom_sf(data=pred_boundary, aes(fill=as.factor(precinct)), alpha=0.3)
+
+st_write(pred_boundary, "precincts.geojson", delete_dsn = TRUE, quiet=TRUE)
+```
+
