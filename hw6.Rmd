@@ -149,7 +149,7 @@ if (!file.exists("mlr_pred.Rdata")) {
   )
   
   pred_index = do.call(cbind, pred) %>%
-  apply(1, which.max)
+    apply(1, which.max)
 
   pred_precinct = precincts[pred_index]
   
