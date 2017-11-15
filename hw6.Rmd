@@ -2,6 +2,8 @@
 title: "Sta 523 - Homework 6"
 author: [Your names here]
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -128,30 +130,41 @@ ggplot(pred) +
 ```{r}
 library(purrr)
 
-d_mlr = d %>% select(-address)
+if (!file.exists("mlr_pred.Rdata")) {
 
-precincts = d_mlr$precinct %>% unique() %>% sort()
-
-pred = map(
-  precincts,
-  function(p) {
-    cat("Precinct", p,"\n")
-    d_mlr %>%
-      mutate(cur_prec = (precinct == p)) %>%
-      glm(cur_prec ~ poly(X,2)*poly(Y,2), family=binomial, data=.) %>%
-      predict(newdata=manh_xy, type="response")
-  }
-)
-
-pred_index = do.call(cbind, pred) %>%
+  d_mlr = d %>% select(-address)
+  precincts = d_mlr$precinct %>% unique() %>% sort()
+  
+  
+  pb = dplyr::progress_estimated(length(precincts))
+  pred = map(
+    precincts,
+    function(p) {
+      pb$tick()$print()
+      d_mlr %>%
+        mutate(cur_prec = (precinct == p)) %>%
+        {suppressWarnings(glm(cur_prec ~ poly(X,2)*poly(Y,2), family=binomial, data=.))} %>%
+        predict(newdata=manh_xy, type="response")
+    }
+  )
+  
+  pred_index = do.call(cbind, pred) %>%
   apply(1, which.max)
 
-pred_precinct = precincts[pred_index]
+  pred_precinct = precincts[pred_index]
+  
+  pred_df = cbind(manh_xy, precinct = pred_precinct)
+  pred_sf = st_sf(precinct = pred_precinct, geometry = manh_pts)
+  
+  save(pred_df, pred_sf, file="mlr_pred.Rdata")
+} else {
+  load("mlr_pred.Rdata")
+}
 ```
 
 ```{r}
 ## Prediction data frame
-pred_df = cbind(manh_xy, precinct = pred_precinct)
+
 ggplot(pred_df) +
   geom_point(aes(x=X,y=Y,color=as.factor(precinct)), size=0.1, alpha=0.5) +
   guides(color = guide_legend(override.aes = list(size=2)))
@@ -160,23 +173,29 @@ ggplot(pred_df) +
 ```{r}
 ## Prediction sf
 
-pred_sf = st_sf(Precinct = pred_precinct, geometry = manh_pts)
+ggplot() +
+  geom_sf(data=pred_sf, aes(color=as.factor(precinct)), size=0.1, alpha=0.5) +
+  guides(color = guide_legend(override.aes = list(size=2)))
+```
 
-
-plot(mutate(pred_sf, precinct = as.factor(precinct)), pch=16, cex=0.1)
+```{r}
+## Predicting boundaries
 
 pred_sf_mp = pred_sf %>%
-  group_by(Precinct) %>%
+  group_by(precinct) %>%
   summarize(geometry = list(st_cast(geometry,"MULTIPOINT")))
 
 pred_boundary = pred_sf_mp %>% st_buffer(0.0013) %>% st_intersection(st_geometry(manh))
 
 plot(mutate(pred_boundary, precinct=as.factor(precinct)))
+
+ggplot() +
+  geom_sf(data=pred_boundary, aes(fill=as.factor(precinct)), alpha=0.3)
 ```
 
 
 ```{r}
-st_write(pred_boundary, "precincts.geojson", delete_dsn = TRUE)
+st_write(pred_boundary, "precincts.geojson", delete_dsn = TRUE, quiet=TRUE)
 ```
 
 
