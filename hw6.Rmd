@@ -246,21 +246,18 @@ library(xgboost)
 
 d_xg = d %>% select(-address) %>% mutate(precinct = as.factor(precinct))
 
-precincts = factor(d_xg$precinct) %>% levels()
-y = (factor(d_xg$precinct) %>% as.integer()) - 1L
+precincts = d_xg$precinct %>% levels()
+y = (d_xg$precinct %>% as.integer()) - 1L
 x = d_xg %>% select(X,Y) %>% as.matrix()
 
 m = xgboost(data=x, label=y, nthread=4, nround=20, objective="multi:softmax", num_class=length(precincts))
 
-
-precinct_pred = predict(m, newdata=as.matrix(manh_xy)) %>% {precincts[.]}
+p_index = predict(m, newdata=as.matrix(manh_xy))
+precinct_pred = precincts[p_index+1L]
 
 pred_df = cbind(manh_xy, precinct=precinct_pred)
 
 pred_sf = st_sf(precinct = precinct_pred, geometry = manh_pts)
-
-ggplot(pred_df) +
-  geom_point(aes(x=X,y=Y,color=precinct_pred), size=0.1, alpha=0.5)
 
 
 pred_sf_mp = pred_sf %>%
@@ -273,7 +270,7 @@ pred_boundary = pred_sf_mp %>% st_buffer(0.00075) %>% st_buffer(-0.0006)
 
 # devtools::install_github("tidyverse/ggplot2")
 ggplot() +
-  geom_sf(data=pred_boundary, aes(fill=as.factor(precinct)), alpha=0.3)
+  geom_sf(data=pred_boundary, aes(fill=precinct), alpha=0.3)
 
 st_write(pred_boundary, "precincts.geojson", delete_dsn = TRUE, quiet=TRUE)
 ```
