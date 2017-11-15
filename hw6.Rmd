@@ -82,27 +82,30 @@ ggplot(d, aes(x=X, y=Y, color=as.factor(precinct))) +
 ```{r}
 library(parallel)
 
-  if (!file.exists("manh.Rdata")) {
+if (!file.exists("manh.Rdata")) {
     
-    manh = st_read("/data/nyc_parking/nybb/nybb.shp", quiet=TRUE) %>%
-      filter(BoroName == "Manhattan")
-    
-    manh_pts = mclapply(
-      1:10,
-      function(x) st_sample(manh, 1000),
-      mc.cores = 10
-    ) %>%
-      unlist(recursive = FALSE) %>% 
-      st_sfc() %>%
-      st_set_crs(st_crs(manh))
-     
-    manh_xy = st_coordinates(manh_pts) %>% as.data.frame()
-    
-    save(manh, manh_pts, manh_xy, file="manh.Rdata")
-    
-  } else {
-    load("manh.Rdata")
-  }
+  manh = st_read("/data/nyc_parking/nybb/nybb.shp", quiet=TRUE) %>%
+    filter(BoroName == "Manhattan")
+  
+  bbox = st_bbox(manh)
+  
+  X = seq(bbox["xmin"], bbox["xmax"], 0.00075)
+  Y = seq(bbox["ymin"], bbox["ymax"], 0.00075)
+  
+  grid = expand.grid(X=X, Y=Y) %>% 
+    as.matrix() %>%
+    st_multipoint() %>%
+    st_sfc() %>%
+    st_set_crs(st_crs(manh))
+      
+  manh_pts = st_intersection(st_geometry(manh), grid) %>% st_cast("POINT")
+   
+  manh_xy = st_coordinates(manh_pts) %>% as.data.frame()
+  
+  save(manh, manh_pts, manh_xy, file="manh.Rdata")
+} else {
+  load("manh.Rdata")
+}
 ```
 
 ```{r}
@@ -185,10 +188,11 @@ pred_sf_mp = pred_sf %>%
   group_by(precinct) %>%
   summarize(geometry = list(st_cast(geometry,"MULTIPOINT")))
 
-pred_boundary = pred_sf_mp %>% st_buffer(0.0013) %>% st_intersection(st_geometry(manh))
+pred_boundary = pred_sf_mp %>% st_buffer(0.00075) %>% st_buffer(-0.0006) 
+  
+  #st_intersection(st_geometry(manh))
 
-plot(mutate(pred_boundary, precinct=as.factor(precinct)))
-
+# devtools::install_github("tidyverse/ggplot2")
 ggplot() +
   geom_sf(data=pred_boundary, aes(fill=as.factor(precinct)), alpha=0.3)
 ```
