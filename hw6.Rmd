@@ -250,7 +250,7 @@ precincts = d_xg$precinct %>% levels()
 y = (d_xg$precinct %>% as.integer()) - 1L
 x = d_xg %>% select(X,Y) %>% as.matrix()
 
-m = xgboost(data=x, label=y, nthread=4, nround=20, objective="multi:softmax", num_class=length(precincts))
+m = xgboost(data=x, label=y, nthread=4, nround=50, objective="multi:softmax", num_class=length(precincts))
 
 p_index = predict(m, newdata=as.matrix(manh_xy))
 precinct_pred = precincts[p_index+1L] %>% as.character() %>% as.integer()
