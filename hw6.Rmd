@@ -253,7 +253,7 @@ x = d_xg %>% select(X,Y) %>% as.matrix()
 m = xgboost(data=x, label=y, nthread=4, nround=20, objective="multi:softmax", num_class=length(precincts))
 
 p_index = predict(m, newdata=as.matrix(manh_xy))
-precinct_pred = precincts[p_index+1L]
+precinct_pred = precincts[p_index+1L] %>% as.character() %>% as.integer()
 
 pred_df = cbind(manh_xy, precinct=precinct_pred)
 
@@ -264,7 +264,7 @@ pred_sf_mp = pred_sf %>%
   group_by(precinct) %>%
   summarize(geometry = list(st_cast(geometry,"MULTIPOINT")))
 
-pred_boundary = pred_sf_mp %>% st_buffer(0.00075) %>% st_buffer(-0.0006) 
+pred_boundary = pred_sf_mp %>% st_buffer(0.00075) %>% st_buffer(-0.0005) 
   
   #st_intersection(st_geometry(manh))
 
